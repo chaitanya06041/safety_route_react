@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./ReportCrime.css";
-import app from "../firebaseConfig";
+import {app} from "../firebaseConfig";
 import {
   getDatabase,
   ref,
