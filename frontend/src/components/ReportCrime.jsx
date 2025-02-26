@@ -12,6 +12,9 @@ import {
   equalTo,
 } from "firebase/database";
 import PlaceSuggestionInput from "./PlaceSuggestionInput";
+
+const GOOGLE_MAP_API = "AIzaSyABXrzOdYntmVFt7vHZPMHEtAnvZLr7N-s";
+
 function ReportCrime() {
   const [crimeLocation, setCrimeLocation] = useState("");
   const [crimeType, setCrimeType] = useState("murder"); // Default value
@@ -23,6 +26,16 @@ function ReportCrime() {
 
   function handleCrimeType(e) {
     setCrimeType(e.target.value);
+  }
+  async function getCoOrdinates(address) {
+    address = address.split(", ").join("+");
+    address = address.split(" ").join("+");
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${address}&key=${GOOGLE_MAP_API}`
+    );
+    const data = await response.json();
+    const { lat, lng } = data.results[0].geometry.location;
+    return {latitude : lat, longitude : lng};
   }
 
   async function handleSubmit() {
@@ -67,10 +80,12 @@ function ReportCrime() {
         );
       } else {
         // Create a new location entry
+        let loc = await getCoOrdinates(crimeLocation);
         const newDocRef = push(crimeRef);
         await set(newDocRef, {
           Location: crimeLocation,
           Crimes: { [crimeType]: 1 },
+          Co_ordinates : loc,
         });
       }
 
@@ -94,8 +109,8 @@ function ReportCrime() {
           setSelectedLocation(location); // Ensure only selected locations are allowed
         }}
         value={crimeLocation}
-        inputClass='crime_input'
-        ulClass='crime_input'
+        inputClass="crime_input"
+        ulClass="crime_input"
       />
 
       <label>Crime Type:</label>
