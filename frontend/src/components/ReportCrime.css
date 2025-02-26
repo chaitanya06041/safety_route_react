@@ -1,0 +1,16 @@
+.report_crime{
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.report_crime h2 {
+    position: relative;
+}
+
+.report_crime .crime_input {
+    width: 300px;
+}
