@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { useEffect } from "react";
+import { useEffect,useRef  } from "react";
 import { getDatabase, ref, get } from "firebase/database";
 import app from "../firebaseConfig";
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import crimeIcon from "../assets/crime.png";
-
+import MyMap from "./MyMap";
 
 const defaultCenter = {
-  lat: 18.5004949, 
+  lat: 18.5004949,
   lng: 73.8529037,
 };
 const mapContainerStyle = {
@@ -15,11 +15,10 @@ const mapContainerStyle = {
   height: "500px",
 };
 
-const GOOGLE_MAP_API = "AIzaSyABXrzOdYntmVFt7vHZPMHEtAnvZLr7N-s";
 
 function CrimeLocations() {
-  let [crimeData, setCrimeData] = useState([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [crimeData, setCrimeData] = useState([]);
+  const mapRef = useRef(null);
 
   const fetchCrimeData = async () => {
     const db = getDatabase(app);
@@ -33,21 +32,24 @@ function CrimeLocations() {
     console.log(crimeData);
   };
 
-   useEffect(() => {
+  useEffect(() => {
     fetchCrimeData();
   }, []);
 
-
+  useEffect(() => {
+    if (window.google && mapRef.current) {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: defaultCenter, // Default: San Francisco
+        zoom: 13,
+      });
+    }
+  }, []);
 
   return (
-    <div>
-      <h2>Crime Locations</h2>
-      <button onClick={() => console.log(crimeData)}>Click</button>
-      <LoadScript googleMapsApiKey={GOOGLE_MAP_API} loading="async" onLoad={() => setIsLoaded(true)}>
-          <GoogleMap mapContainerStyle={mapContainerStyle} center={defaultCenter} zoom={12}>
-          </GoogleMap>
-      </LoadScript>
-    </div>
+    <div
+      ref={mapRef}
+      style={{ width: "100%", height: "100vh", borderRadius: "10px" }}
+    />
   );
 }
 
