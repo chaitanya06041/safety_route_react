@@ -12,6 +12,7 @@ const PlaceSuggestionInput = ({
   const [suggestions, setSuggestions] = useState([]);
   const [service, setService] = useState(null);
   const [validSelection, setValidSelection] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   useEffect(() => {
     setInputValue(value || "");
@@ -32,6 +33,7 @@ const PlaceSuggestionInput = ({
     const newValue = e.target.value;
     setInputValue(newValue);
     setValidSelection(false); // Reset validation on user typing
+    setSelectedIndex(-1);
 
     if (newValue.length > 2 && service) {
       service.getPlacePredictions(
@@ -53,12 +55,28 @@ const PlaceSuggestionInput = ({
     setInputValue(place.description);
     setSuggestions([]);
     setValidSelection(true); // Mark selection as valid
+    setSelectedIndex(-1);
     onLocationSelect(place.description);
   };
 
   const handleBlur = () => {
     if (!validSelection) {
       setInputValue(""); // Clear input if user didn't select from suggestions
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      // Move down in suggestions list
+      setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      // Move up in suggestions list
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+    } else if (e.key === "Enter") {
+      // Select the highlighted suggestion
+      if (selectedIndex !== -1 && suggestions.length > 0) {
+        handleSelect(suggestions[selectedIndex]);
+      }
     }
   };
 
@@ -69,6 +87,7 @@ const PlaceSuggestionInput = ({
         value={inputValue}
         onChange={handleChange}
         onBlur={handleBlur} // Clear input if user doesn't select from suggestions
+        onKeyDown={handleKeyDown}
         placeholder="Enter crime location"
         className={inputClass}
         style={{
@@ -97,7 +116,7 @@ const PlaceSuggestionInput = ({
             boxShadow: "0px 4px 6px rgba(0,0,0,0.1)",
           }}
         >
-          {suggestions.map((place) => (
+          {suggestions.map((place, index) => (
             <li
               key={place.place_id}
               onClick={() => handleSelect(place)}
@@ -105,6 +124,7 @@ const PlaceSuggestionInput = ({
                 padding: "8px",
                 cursor: "pointer",
                 borderBottom: "1px solid #eee",
+                background: index === selectedIndex ? "#f0f0f0" : "white",
               }}
             >
               {place.description}

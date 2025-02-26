@@ -47,7 +47,6 @@ function ReportCrime() {
       alert("Please select a valid location.");
       return;
     }
-    console.log(`Location: ${crimeLocation}, Crime Type: ${crimeType}`);
 
     const db = getDatabase(app);
     const crimeRef = ref(db, "safe-routes/crime-locations");
