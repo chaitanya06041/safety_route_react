@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyABXrzOdYntmVFt7vHZPMHEtAnvZLr7N-s"; // Replace with your actual API key
-
 const PlaceSuggestionInput = ({
   onLocationSelect,
   value,
@@ -16,36 +14,29 @@ const PlaceSuggestionInput = ({
 
   useEffect(() => {
     setInputValue(value || "");
-    setValidSelection(false); // Reset selection when value changes externally
+    setValidSelection(false);
   }, [value]);
 
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    script.onload = () => {
+    if (window.google && window.google.maps && window.google.maps.places) {
       setService(new window.google.maps.places.AutocompleteService());
-    };
-    document.body.appendChild(script);
+    }
   }, []);
 
   const handleChange = (e) => {
     const newValue = e.target.value;
     setInputValue(newValue);
-    setValidSelection(false); // Reset validation on user typing
+    setValidSelection(false);
     setSelectedIndex(-1);
 
     if (newValue.length > 2 && service) {
-      service.getPlacePredictions(
-        { input: newValue },
-        (predictions, status) => {
-          if (status === "OK") {
-            setSuggestions(predictions || []);
-          } else {
-            setSuggestions([]);
-          }
+      service.getPlacePredictions({ input: newValue }, (predictions, status) => {
+        if (status === "OK") {
+          setSuggestions(predictions || []);
+        } else {
+          setSuggestions([]);
         }
-      );
+      });
     } else {
       setSuggestions([]);
     }
@@ -54,44 +45,38 @@ const PlaceSuggestionInput = ({
   const handleSelect = (place) => {
     setInputValue(place.description);
     setSuggestions([]);
-    setValidSelection(true); // Mark selection as valid
+    setValidSelection(true);
     setSelectedIndex(-1);
     onLocationSelect(place.description);
   };
 
   const handleBlur = () => {
     if (!validSelection) {
-      setInputValue(""); // Clear input if user didn't select from suggestions
+      setInputValue("");
     }
   };
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowDown") {
-      // Move down in suggestions list
       setSelectedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
     } else if (e.key === "ArrowUp") {
-      // Move up in suggestions list
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
-    } else if (e.key === "Enter") {
-      // Select the highlighted suggestion
-      if (selectedIndex !== -1 && suggestions.length > 0) {
-        handleSelect(suggestions[selectedIndex]);
-      }
+    } else if (e.key === "Enter" && selectedIndex !== -1) {
+      handleSelect(suggestions[selectedIndex]);
     }
   };
 
   return (
-    <div style={{position : 'relative'}}>
+    <div style={{ position: "relative" }}>
       <input
         type="text"
         value={inputValue}
         onChange={handleChange}
-        onBlur={handleBlur} // Clear input if user doesn't select from suggestions
+        onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder="Enter crime location"
         className={inputClass}
         style={{
-          // width: "100%",
           padding: "10px",
           fontSize: "16px",
           border: "1px solid #ccc",
