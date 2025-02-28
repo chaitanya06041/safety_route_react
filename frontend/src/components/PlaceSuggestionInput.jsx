@@ -5,6 +5,7 @@ const PlaceSuggestionInput = ({
   value,
   inputClass,
   ulClass,
+  placeholder
 }) => {
   const [inputValue, setInputValue] = useState(value || "");
   const [suggestions, setSuggestions] = useState([]);
@@ -74,13 +75,14 @@ const PlaceSuggestionInput = ({
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        placeholder="Enter crime location"
+        placeholder={placeholder}
         className={inputClass}
         style={{
           padding: "10px",
           fontSize: "16px",
           border: "1px solid #ccc",
           borderRadius: "4px",
+          fontFamily: 'poppins'
         }}
       />
       {suggestions.length > 0 && (

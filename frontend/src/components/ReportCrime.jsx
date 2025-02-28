@@ -110,6 +110,7 @@ function ReportCrime() {
         value={crimeLocation}
         inputClass="crime_input"
         ulClass="crime_input"
+        placeholder="Enter Crime Location"
       />
 
       <label>Crime Type:</label>
