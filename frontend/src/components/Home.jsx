@@ -18,7 +18,7 @@ function Home() {
   useEffect(() => {
     if (window.google) {
       setMap(
-        new window.google.maps.Map(document.getElementById("tempmap"), {
+        new window.google.maps.Map(document.getElementById("map"), {
           center: { lat: 18.5204, lng: 73.8567 }, // Default center (Pune)
           zoom: 12,
         })
@@ -128,6 +128,7 @@ function Home() {
             />
           </div>
         </div>
+
         <div className="btn_section">
           <Stack spacing={2} direction="row">
             <Button variant="contained" onClick={handleFindRoute}>Find Safe Route</Button>
@@ -143,7 +144,7 @@ function Home() {
       </div>
       <div className="map_section">
         <div
-          id="tempmap"
+          id="map"
         //   style={{ width: "100%", height: "500px", marginTop: "10px" }}
         ></div>
       </div>
