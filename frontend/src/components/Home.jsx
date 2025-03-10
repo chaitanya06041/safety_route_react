@@ -1,49 +1,98 @@
-import React, { useState } from "react";
 import "./Home.css";
+import React, { useState, useEffect } from "react";
 import PlaceSuggestionInput from "./PlaceSuggestionInput";
 import SourceIcon from "../assets/pin.png";
 import AlterIcon from "../assets/alter.png";
 import DestIcon from "../assets/flag.png";
+import axios from "axios";
+import Stack from "@mui/material/Stack";
+import Button from "@mui/material/Button";
+const GOOGLE_MAP_API = "AIzaSyABXrzOdYntmVFt7vHZPMHEtAnvZLr7N-s";
 
 function Home() {
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
-  const [currentLocation, setCurrentLocation] = useState({});
-  const [activeInput, setActiveInput] = useState("");
+  const [map, setMap] = useState(null);
+  const [directionsRenderer, setDirectionsRenderer] = useState(null);
 
-  function handleSubmit() {
-    console.log(`Source: ${source}, Destination: ${destination}`);
-    console.log(
-      `Current Location: ${currentLocation.latitude}  ${currentLocation.longitude}`
-    );
-  }
-
-  async function handleCurrentLocation() {
-    if (navigator.geolocation) {
-      // what to do if supported
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // what to do once we have the position
-          const { latitude, longitude } = position.coords;
-          setCurrentLocation({latitude, longitude});
-          if (activeInput === "source") {
-            setSource(`${currentLocation.latitude}, ${currentLocation.longitude}`);
-          } else if (activeInput === "destination") {
-            setDestination(`${currentLocation.latitude}, ${currentLocation.longitude}`);
-          }
-        },
-        (error) => {
-          // display an error if we cant get the users position
-          console.error("Error getting user location:", error);
-        }
+  useEffect(() => {
+    if (window.google) {
+      setMap(
+        new window.google.maps.Map(document.getElementById("tempmap"), {
+          center: { lat: 18.5204, lng: 73.8567 }, // Default center (Pune)
+          zoom: 12,
+        })
       );
-    } else {
-      // display an error if not supported
-      console.error("Geolocation is not supported by this browser.");
     }
+  }, []);
+
+  const handleFindRoute = async () => {
+    if (!source || !destination) {
+      alert("Please enter source and destination coordinates.");
+      return;
+    }
+
+    const srcCoords = await getCoordinates(source);
+    const destCoords = await getCoordinates(destination);
+
+    try {
+      const response = await axios.post("http://127.0.0.1:5000/safe-route", {
+        source: srcCoords,
+        destination: destCoords,
+      });
+
+      if (response.data.safe_routes.length > 0) {
+        drawRoute(response.data.safe_routes[0]);
+      } else {
+        alert("No safe route found!");
+      }
+    } catch (error) {
+      console.error("Error fetching safe route:", error);
+    }
+  };
+
+  const drawRoute = (route) => {
+    const directionsService = new window.google.maps.DirectionsService();
+    const directionsRenderer = new window.google.maps.DirectionsRenderer({
+      map,
+    });
+
+    const path = route.overview_polyline.points;
+    directionsService.route(
+      {
+        origin: source,
+        destination: destination,
+        travelMode: window.google.maps.TravelMode.DRIVING,
+        provideRouteAlternatives: true,
+      },
+      (result, status) => {
+        if (status === "OK") {
+          directionsRenderer.setDirections(result);
+        } else {
+          console.error("Directions request failed:", status);
+        }
+      }
+    );
+  };
+
+  async function getCoordinates(address) {
+    address = address.split(", ").join("+");
+    address = address.split(" ").join("+");
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${address}&key=${GOOGLE_MAP_API}`
+    );
+    const data = await response.json();
+
+    const { lat, lng } = data.results[0].geometry.location;
+    const res = {
+      latitude: lat,
+      longitude: lng,
+    };
+
+    return res;
   }
 
-  function handleAlter() {
+  const handleAlter = () => {
     let temp = source;
     setSource(destination);
     setDestination(temp);
@@ -61,7 +110,6 @@ function Home() {
               inputClass="inputs"
               ulClass="suggestions-dropdown"
               placeholder="Enter Source"
-              onFocus={() => setActiveInput("source")}
             />
           </div>
 
@@ -77,18 +125,30 @@ function Home() {
               inputClass="inputs"
               ulClass="suggestions-dropdown"
               placeholder="Enter Destination"
-              onFocus={() => setActiveInput("destination")}
             />
           </div>
         </div>
-        {activeInput && ( // Show button only if an input field is active
-          <button onClick={handleCurrentLocation}>Current Location</button>
-        )}
-        <button onClick={handleSubmit}>Search</button>
+        <div className="btn_section">
+          <Stack spacing={2} direction="row">
+            <Button variant="contained" onClick={handleFindRoute}>Find Safe Route</Button>
+          </Stack>
+        </div>
+
+        <div className="sos_section">
+          <Stack spacing={2} direction="row">
+            <Button variant="contained" color="error">SOS</Button>
+          </Stack>
+        </div>
+
       </div>
-      <div className="map_section"></div>
+      <div className="map_section">
+        <div
+          id="tempmap"
+        //   style={{ width: "100%", height: "500px", marginTop: "10px" }}
+        ></div>
+      </div>
     </div>
   );
 }
 
-export default Home;
+export default Home
