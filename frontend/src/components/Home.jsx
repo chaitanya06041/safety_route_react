@@ -13,7 +13,10 @@ function Home() {
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
   const [map, setMap] = useState(null);
-  const [directionsRenderer, setDirectionsRenderer] = useState(null);
+  const [curLocation, setCurLocation] = useState(null);
+  const [nearestCommunityCenter, setNearestCommunityCenter] = useState(null);
+  const directionsRenderer = null;
+  const [polyline, setPolyline] = useState(null);
 
   useEffect(() => {
     if (window.google) {
@@ -96,7 +99,139 @@ function Home() {
     let temp = source;
     setSource(destination);
     setDestination(temp);
-  }
+  };
+
+  const getCurrentLocation = async () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error("error: ", error);
+        }
+      );
+    } else {
+      console.error("Cannot get location of your device");
+    }
+  };
+
+  const getNearestCommunityCenter = async () => {
+    await getCurrentLocation();
+    if (curLocation) {
+      const res = await axios.post(
+        "http://127.0.0.1:5000/get-nearest-community-center",
+        curLocation
+      );
+      const response = res.data;
+      if (response.error) {
+        console.error(response.error);
+        return;
+      }
+      if (response.nearest_community_center === "null") {
+        console.error("No nearest community center");
+        return;
+      }
+      let center = response.nearest_community_center;
+      console.log(center);
+      setNearestCommunityCenter({
+        latitude: center.latitude,
+        longitude: center.longitude,
+        type: center.type,
+      });
+      console.log(nearestCommunityCenter);
+    }
+  };
+
+  const showNearestCommunityCenter = async () => {
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          setCurLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error("error: no cur location:  ", error);
+          return;
+        }
+      );
+
+      console.log("cur location", curLocation);
+      
+
+      const res = await axios.post(
+        "http://127.0.0.1:5000/get-nearest-community-center",
+        curLocation
+      );
+      const response = res.data;
+      if (response.error) {
+        console.error(response.error);
+        return;
+      }
+      if (response.nearest_community_center === "null") {
+        console.error("No nearest community center");
+        return;
+      }
+      let center = response.nearest_community_center;
+      console.log("Nearest Center: ", center);
+
+      const srcCoords = {latitude : curLocation.lat,longitude : curLocation.lng};
+      const destCoords = {
+        latitude: center.latitude,
+        longitude: center.longitude,
+      };
+
+      console.log(`${srcCoords.latitude} ${srcCoords.longitude}`);
+      console.log(`${destCoords.latitude} ${destCoords.longitude}`);
+
+      try {
+        const response = await axios.post("http://127.0.0.1:5000/safe-route", {
+          source: srcCoords,
+          destination: destCoords,
+        });
+        console.log("route: " , response.data.safe_routes);
+
+        if (response.data.safe_routes.length > 0) {
+          const route = response.data.safe_routes[0];
+          const directionsService = new window.google.maps.DirectionsService();
+          const directionsRenderer = new window.google.maps.DirectionsRenderer({
+            map,
+          });
+
+          const path = route.overview_polyline.points;
+          directionsService.route(
+            {
+              origin: curLocation,
+              destination: {
+                lat : destCoords.latitude, lng : destCoords.longitude
+              },
+              travelMode: window.google.maps.TravelMode.DRIVING,
+              provideRouteAlternatives: true,
+            },
+            (result, status) => {
+              if (status === "OK") {
+                directionsRenderer.setDirections(result);
+              } else {
+                console.error("Directions request failed:", status);
+              }
+            }
+          );
+        } else {
+          alert("No safe route found!");
+        }
+      } catch (error) {
+        console.error("Error fetching safe route:", error);
+      }
+    } else {
+      console.error("Cannot get location of your device");
+    }
+  };
 
   return (
     <div className="home">
@@ -131,25 +266,32 @@ function Home() {
 
         <div className="btn_section">
           <Stack spacing={2} direction="row">
-            <Button variant="contained" onClick={handleFindRoute}>Find Safe Route</Button>
+            <Button variant="contained" onClick={handleFindRoute}>
+              Find Safe Route
+            </Button>
           </Stack>
         </div>
 
         <div className="sos_section">
           <Stack spacing={2} direction="row">
-            <Button variant="contained" color="error">SOS</Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={showNearestCommunityCenter}
+            >
+              SOS
+            </Button>
           </Stack>
         </div>
-
       </div>
       <div className="map_section">
         <div
           id="map"
-        //   style={{ width: "100%", height: "500px", marginTop: "10px" }}
+          //   style={{ width: "100%", height: "500px", marginTop: "10px" }}
         ></div>
       </div>
     </div>
   );
 }
 
-export default Home
+export default Home;

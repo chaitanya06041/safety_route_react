@@ -72,6 +72,47 @@ def get_safe_route():
 
     return jsonify({"safe_routes": safe_routes})
 
+
+@app.route('/get-nearest-community-center', methods = ["POST"])
+def get_nearest_community_center():
+    req_range = 5
+    data = request.json
+    user_lat = data.get("lat")
+    user_lon = data.get("lng")
+
+    if user_lat is None or user_lon is None:
+        return jsonify({"error": "Latitude and longitude are required"}), 400
+    
+    ref = db.reference('safe-routes/community-centers')
+    centers = ref.get()
+
+    nearest_center = None
+    min_distance = float("inf")
+
+    if centers:
+        for center_id, center_data in centers.items():
+            coordinates = center_data['Co_ordinates']
+            center_lat = coordinates["latitude"]
+            center_lon = coordinates["longitude"]
+
+            if center_lat is None or center_lon is None:
+                continue  
+            distance = geodesic((user_lat, user_lon), (center_lat, center_lon)).km
+            if distance < min_distance and distance < req_range:
+                min_distance = distance
+                nearest_center = {
+                    "type": center_data["Type"],
+                    "latitude": center_lat,
+                    "longitude": center_lon,
+                    "distance_km": min_distance,
+                }
+        if nearest_center: 
+            return jsonify({"nearest_community_center": nearest_center}), 200
+        else:
+            return jsonify({"nearest_community_center": "null"}), 200
+    return jsonify({"error": "could not find nearest community center"}), 200
+
+
 if __name__ == '__main__':
     get_crime_locations()
     app.run(debug=True)
