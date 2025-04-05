@@ -119,32 +119,6 @@ function Home() {
     }
   };
 
-  const getNearestCommunityCenter = async () => {
-    await getCurrentLocation();
-    if (curLocation) {
-      const res = await axios.post(
-        "http://127.0.0.1:5000/get-nearest-community-center",
-        curLocation
-      );
-      const response = res.data;
-      if (response.error) {
-        console.error(response.error);
-        return;
-      }
-      if (response.nearest_community_center === "null") {
-        console.error("No nearest community center");
-        return;
-      }
-      let center = response.nearest_community_center;
-      console.log(center);
-      setNearestCommunityCenter({
-        latitude: center.latitude,
-        longitude: center.longitude,
-        type: center.type,
-      });
-      console.log(nearestCommunityCenter);
-    }
-  };
 
   const showNearestCommunityCenter = async () => {
 

@@ -1,7 +1,4 @@
-import React, { useState } from "react";
-import { useEffect, useRef } from "react";
-import { getDatabase, ref, get } from "firebase/database";
-import {app} from "../firebaseConfig";
+import React, { useState, useEffect } from "react";
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import crimeIcon from "../assets/warning.png";
 
@@ -9,6 +6,7 @@ const defaultCenter = {
   lat: 18.5004949,
   lng: 73.8529037,
 };
+
 const mapContainerStyle = {
   width: "100%",
   height: "100vh",
@@ -16,49 +14,44 @@ const mapContainerStyle = {
 
 function CrimeLocations() {
   const [crimeData, setCrimeData] = useState([]);
-  const mapRef = useRef(null);
 
   const fetchCrimeData = async () => {
-    const db = getDatabase(app);
-    const dbRef = ref(db, "safe-routes/crime-locations");
-    const snapshot = await get(dbRef);
-    if (snapshot.exists()) {
-      setCrimeData(Object.values(snapshot.val()));
-    } else {
-      alert("Error finding data");
+    try {
+      const response = await fetch("http://localhost:5000/get-crime-locations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        console.log(data);
+        
+        setCrimeData(data.data);
+      } else {
+        alert("Error fetching crime data");
+      }
+    } catch (error) {
+      console.error("Error fetching crime data:", error);
     }
-    console.log(crimeData);
   };
 
   useEffect(() => {
     fetchCrimeData();
   }, []);
 
-  useEffect(() => {
-    if (window.google && mapRef.current) {
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: defaultCenter, // Default: San Francisco
-        zoom: 13,
-      });
-    }
-  }, []);
-
   return (
-    <GoogleMap
-      mapContainerStyle={mapContainerStyle}
-      center={defaultCenter}
-      zoom={13}
-    >
+    <GoogleMap mapContainerStyle={mapContainerStyle} center={defaultCenter} zoom={13}>
       {crimeData.map((crime, index) => (
         <Marker
           key={index}
           position={{
-            lat: crime.Co_ordinates.latitude,
-            lng: crime.Co_ordinates.longitude,
+            lat: parseFloat(crime.Latitude),
+            lng: parseFloat(crime.Longitude),
           }}
           icon={{
             url: crimeIcon,
-            scaledSize: new window.google.maps.Size(30, 30), // Resize the icon
+            scaledSize: new window.google.maps.Size(30, 30),
           }}
         />
       ))}

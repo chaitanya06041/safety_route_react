@@ -4,7 +4,8 @@ from firebase_admin import credentials, db
 import requests
 from geopy.distance import geodesic
 from flask_cors import CORS
-
+import pandas as pd
+import temp
 
 app = Flask(__name__)
 CORS(app)
@@ -35,6 +36,18 @@ def is_near_crime(lat, lng, crime_locations):
         if geodesic((lat, lng), crime).meters < 200:
             return True
     return False
+
+
+@app.route('/get-crime-locations', methods=['POST'])
+def get_crime_locationss():
+    # filtered_df = temp.get_crime_locations()
+    filtered_df = pd.read_csv('pune_crime_data.csv')
+    # filtered_df['Time'] = filtered_df['Time'].apply(lambda t: t.strftime('%H:%M'))
+    return jsonify({
+        "status": "success",
+        "data": filtered_df.to_dict(orient='records')
+    })
+
 
 
 @app.route('/safe-route', methods=['POST'])

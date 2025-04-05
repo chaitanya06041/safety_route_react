@@ -1,71 +1,133 @@
-import React, { useState } from "react";
-import { useEffect, useRef } from "react";
-import { getDatabase, ref, get } from "firebase/database";
-import { app } from "../firebaseConfig";
-import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
-import crimeIcon from "../assets/warning.png";
-import HospitalIcon from '../assets/hospital.png'
-import PoliceStationIcon from '../assets/police-station.png'
+import React, { useEffect, useState } from "react";
+import { GoogleMap, Marker } from "@react-google-maps/api";
+import HospitalIcon from "../assets/hospital.png";
+import PoliceStationIcon from "../assets/police-station.png";
+import UserIcon from "../assets/pin.png"; // Add a custom user icon
 
-const defaultCenter = {
-  lat: 18.5004949,
-  lng: 73.8529037,
-};
 const mapContainerStyle = {
   width: "100%",
   height: "100vh",
 };
 
-function CommunityCenters() {
-  const [centers, setCenters] = useState([]);
-  const mapRef = useRef(null);
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  const toRad = (x) => (x * Math.PI) / 180;
+  const R = 6371; // Earth's radius in km
 
-  const fetchCenters = async () => {
-    const db = getDatabase(app);
-    const dbRef = ref(db, "safe-routes/community-centers");
-    const snapshot = await get(dbRef);
-    if (snapshot.exists()) {
-      setCenters(Object.values(snapshot.val()));
-    } else {
-      alert("Error finding data");
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+};
+
+function CommunityCenters() {
+  const [places, setPlaces] = useState([]);
+  const [currentLocation, setCurrentLocation] = useState(null);
+
+  // Fetch user's location
+  const fetchCurrentLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setCurrentLocation(coords);
+        fetchOSMPlaces(coords);
+      },
+      (err) => {
+        console.error("Error getting location:", err);
+        alert("Please allow location access to show nearby safety centers.");
+      }
+    );
+  };
+
+  // Fetch places using Overpass API near user's location
+  const fetchOSMPlaces = async ({ lat, lng }) => {
+    const latMin = lat - 0.02;
+    const latMax = lat + 0.02;
+    const lonMin = lng - 0.02;
+    const lonMax = lng + 0.02;
+
+    const query = `
+      [out:json];
+      (
+        node["amenity"="hospital"](${latMin},${lonMin},${latMax},${lonMax});
+        node["amenity"="police"](${latMin},${lonMin},${latMax},${lonMax});
+      );
+      out body;
+    `;
+
+    try {
+      const response = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: query,
+      });
+
+      const data = await response.json();
+      const filtered = data.elements.filter((place) => {
+        const distance = haversineDistance(
+          lat,
+          lng,
+          place.lat,
+          place.lon
+        );
+        return distance <= 5; // only within 2km
+      });
+
+      setPlaces(filtered);
+    } catch (error) {
+      console.error("Error fetching OSM data:", error);
+      alert("Failed to load hospital/police locations");
     }
-    console.log(crimeData);
   };
 
   useEffect(() => {
-    fetchCenters();
-  }, []);
-
-  useEffect(() => {
-    if (window.google && mapRef.current) {
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: defaultCenter, 
-        zoom: 13,
-      });
-    }
+    fetchCurrentLocation();
   }, []);
 
   return (
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={defaultCenter}
-        zoom={13}
-      >
-        {centers.map((center, index) => (
+    <>
+      {currentLocation && (
+        <GoogleMap
+          mapContainerStyle={mapContainerStyle}
+          center={currentLocation}
+          zoom={14}
+        >
+          {/* User Marker */}
           <Marker
-            key={index}
-            position={{
-              lat: center.Co_ordinates.latitude,
-              lng: center.Co_ordinates.longitude,
-            }}
+            position={currentLocation}
             icon={{
-              url: center.Type == 'hospital' ? HospitalIcon : PoliceStationIcon,
-              scaledSize: new window.google.maps.Size(30, 30), // Resize the icon
+              url: UserIcon,
+              scaledSize: new window.google.maps.Size(40, 40),
             }}
+            title="You are here"
           />
-        ))}
-      </GoogleMap>
-    );
+
+          {/* Community Centers within 2km */}
+          {places.map((place, index) => (
+            <Marker
+              key={index}
+              position={{ lat: place.lat, lng: place.lon }}
+              icon={{
+                url:
+                  place.tags.amenity === "hospital"
+                    ? HospitalIcon
+                    : PoliceStationIcon,
+                scaledSize: new window.google.maps.Size(30, 30),
+              }}
+              title={place.tags.name || place.tags.amenity}
+            />
+          ))}
+        </GoogleMap>
+      )}
+    </>
+  );
 }
 
 export default CommunityCenters;
