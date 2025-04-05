@@ -9,22 +9,6 @@ const mapContainerStyle = {
   height: "100vh",
 };
 
-const haversineDistance = (lat1, lon1, lat2, lon2) => {
-  const toRad = (x) => (x * Math.PI) / 180;
-  const R = 6371; // Earth's radius in km
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in km
-};
-
 function CommunityCenters() {
   const [places, setPlaces] = useState([]);
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -38,7 +22,7 @@ function CommunityCenters() {
           lng: position.coords.longitude,
         };
         setCurrentLocation(coords);
-        fetchOSMPlaces(coords);
+        fetchNearbyPlaces(coords);
       },
       (err) => {
         console.error("Error getting location:", err);
@@ -47,43 +31,26 @@ function CommunityCenters() {
     );
   };
 
-  // Fetch places using Overpass API near user's location
-  const fetchOSMPlaces = async ({ lat, lng }) => {
-    const latMin = lat - 0.02;
-    const latMax = lat + 0.02;
-    const lonMin = lng - 0.02;
-    const lonMax = lng + 0.02;
-
-    const query = `
-      [out:json];
-      (
-        node["amenity"="hospital"](${latMin},${lonMin},${latMax},${lonMax});
-        node["amenity"="police"](${latMin},${lonMin},${latMax},${lonMax});
-      );
-      out body;
-    `;
-
+  const fetchNearbyPlaces = async ({ lat, lng }) => {
     try {
-      const response = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: query,
-      });
+      const response = await fetch(
+        "http://localhost:5000/get-community-centers",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lat, lng }),
+        }
+      );
 
       const data = await response.json();
-      const filtered = data.elements.filter((place) => {
-        const distance = haversineDistance(
-          lat,
-          lng,
-          place.lat,
-          place.lon
-        );
-        return distance <= 5; // only within 2km
-      });
-
-      setPlaces(filtered);
+      if (data.status === "success") {
+        setPlaces(data.places);
+        console.log(data.places);
+      } else {
+        alert("Failed to fetch community centers.");
+      }
     } catch (error) {
-      console.error("Error fetching OSM data:", error);
-      alert("Failed to load hospital/police locations");
+      console.error("Error fetching places:", error);
     }
   };
 
@@ -110,20 +77,30 @@ function CommunityCenters() {
           />
 
           {/* Community Centers within 2km */}
-          {places.map((place, index) => (
-            <Marker
+          {places.map((place, index) => {
+            const lat = Number(place.lat);
+            const lng = Number(place.lng);
+
+            if (isNaN(lat) || isNaN(lng)) {
+              console.warn("Invalid LatLng:", place); // Optional: for debugging
+              return null;
+            }
+
+            return (
+              <Marker
               key={index}
-              position={{ lat: place.lat, lng: place.lon }}
+              position={{ lat, lng }}
               icon={{
                 url:
-                  place.tags.amenity === "hospital"
+                  place.type === "hospital"
                     ? HospitalIcon
                     : PoliceStationIcon,
                 scaledSize: new window.google.maps.Size(30, 30),
               }}
-              title={place.tags.name || place.tags.amenity}
+              title={place.name || place.type}
             />
-          ))}
+            );
+          })}
         </GoogleMap>
       )}
     </>

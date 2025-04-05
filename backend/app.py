@@ -86,9 +86,44 @@ def get_safe_route():
     return jsonify({"safe_routes": safe_routes})
 
 
+@app.route('/get-community-centers', methods=["POST"])
+def get_nearby_places():
+    data = request.get_json()
+    user_lat = data.get("lat")
+    user_lng = data.get("lng")
+    radius = 3000  # in meters (5km)
+
+    if not user_lat or not user_lng:
+        return jsonify({"status": "error", "message": "Missing coordinates"}), 400
+
+    places = []
+    for place_type in ["hospital", "police"]:
+        url = (
+            "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+            f"?location={user_lat},{user_lng}"
+            f"&radius={radius}"
+            f"&type={place_type}"
+            f"&key={GOOGLE_MAPS_API_KEY}"
+        )
+
+        response = requests.get(url)
+        data = response.json()
+
+        if data.get("status") == "OK":
+            for result in data["results"]:
+                places.append({
+                    "name": result["name"],
+                    "type": place_type,
+                    "lat": float(result["geometry"]["location"]["lat"]),
+                    "lng": float(result["geometry"]["location"]["lng"])
+                })
+
+    return jsonify({"status": "success", "places": places})
+
+
 @app.route('/get-nearest-community-center', methods = ["POST"])
 def get_nearest_community_center():
-    req_range = 5
+    req_range = 3
     data = request.json
     user_lat = data.get("lat")
     user_lon = data.get("lng")
@@ -124,6 +159,8 @@ def get_nearest_community_center():
         else:
             return jsonify({"nearest_community_center": "null"}), 200
     return jsonify({"error": "could not find nearest community center"}), 200
+
+
 
 
 if __name__ == '__main__':
