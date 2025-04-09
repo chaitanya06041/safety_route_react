@@ -13,7 +13,7 @@ function Safe() {
     const [destination, setDestination] = useState("");
     const [map, setMap] = useState(null);
     const [polylines, setPolylines] = useState([]);
-
+    const [currentLocation, setCurrentLocation] = useState(null);
   
     useEffect(() => {
       if (window.google) {
@@ -31,6 +31,46 @@ function Safe() {
       setSource(destination);
       setDestination(temp);
     };
+
+    const fetchCurrentLocation = () => {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const coords = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+            setCurrentLocation(coords);
+            resolve(coords);
+          },
+          (err) => {
+            console.error("Error getting location:", err);
+            alert("Please allow location access to show nearby safety centers.");
+            reject(err);
+          }
+        );
+      });
+    };
+
+    const sendSOS = async () => {
+      console.log("SOS clicked");
+      try {
+        const coords = await fetchCurrentLocation(); // Now this waits!
+        
+        const response = await axios.post("http://127.0.0.1:5000/send-sos-message", {
+          lat: coords.lat,
+          lng: coords.lng,
+          username: "Chaitanya"
+        });
+    
+        if (response.data.success) {
+          alert("WhatsApp SOS sent successfully!");
+        }
+      }
+      catch (err) {
+        console.error("error: ", err);
+      }
+    }
 
     const getSafePaths = async (source, destination) => {
         try {
@@ -134,6 +174,7 @@ function Safe() {
               <Button
                 variant="contained"
                 color="error"
+                onClick={sendSOS}
               >
                 SOS
               </Button>
