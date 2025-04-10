@@ -49,8 +49,14 @@
     margin-top: 20px;
 }
 
-.home .input_section .sos_section {
+.home .input_section .btn_section {
     margin-top: 20px;
+}
+
+.home .input_section .sos_section .Loader{
+    display: flex;
+    justify-content: center;
+    text-align: center;
 }
 
 
