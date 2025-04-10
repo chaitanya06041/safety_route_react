@@ -91,7 +91,7 @@ def send_whatsapp_message():
     TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
     TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
     TO_WHATSAPP_NUMBER = os.getenv("TO_WHATSAPP_NUMBER")
-    print(TWILIO_ACCOUNT_SID)
+    print("Twilio: ",TWILIO_ACCOUNT_SID)
     client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     client.messages.create(
         from_=TWILIO_WHATSAPP_NUMBER,
