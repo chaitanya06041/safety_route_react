@@ -67,12 +67,22 @@ def get_routes(start, end):
         path = polyline.decode(route['overview_polyline']['points'])
         danger = get_route_danger(path)
 
+        steps = [
+            {
+                "instruction": step["html_instructions"],
+                "distance": step["distance"]["text"],
+                "location": step["end_location"]
+            }
+            for step in route["legs"][0]["steps"]
+        ]
+
         routes.append({
             'id': i,
             'danger': danger,
             'distance': route['legs'][0]['distance']['text'],
             'duration': route['legs'][0]['duration']['text'],
-            'coordinates': path
+            'coordinates': path,
+            'steps':steps
         })
     return sorted(routes, key=lambda x: x['danger'])
 

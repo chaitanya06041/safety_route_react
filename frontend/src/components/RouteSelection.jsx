@@ -1,11 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import "./RouteSelection.css";
 import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
-import { useState } from "react";
 
 function RouteSelection({ routes, map, setPolylines }) {
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(null);
+  const [watchId, setWatchId] = useState(null);
+  const [userMarker, setUserMarker] = useState(null);
+  const [steps, setSteps] = useState([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
   const handleRadioChange = (event) => {
     setSelectedRouteIndex(parseInt(event.target.value));
   };
@@ -44,7 +48,109 @@ function RouteSelection({ routes, map, setPolylines }) {
     newPolyline.setMap(map);
     setPolylines([newPolyline]);
 
+    // Save steps
+    if (selectedRoute.steps) {
+      setSteps(selectedRoute.steps);
+      setCurrentStepIndex(0);
+    }
+
     console.log("Selected Route:", selectedRoute);
+  };
+
+  const updateCurrentStep = (lat, lng) => {
+    const threshold = 0.0005; // Roughly 50m
+
+    for (let i = currentStepIndex; i < steps.length; i++) {
+      const stepLat = steps[i].location.lat;
+      const stepLng = steps[i].location.lng;
+
+      const distance = Math.sqrt(
+        Math.pow(stepLat - lat, 2) + Math.pow(stepLng - lng, 2)
+      );
+
+      if (distance < threshold) {
+        setCurrentStepIndex(i + 1);
+        speak(steps[i].instruction);
+        break;
+      }
+    }
+  };
+
+  const handleStartRoute = () => {
+    if (!map || selectedRouteIndex === null) return;
+
+    const id = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const newLatLng = new window.google.maps.LatLng(latitude, longitude);
+
+        // Update or create marker
+        if (userMarker) {
+          userMarker.setPosition(newLatLng);
+        } else {
+          const marker = new window.google.maps.Marker({
+            position: newLatLng,
+            map,
+            title: "Your Location",
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: "#4285F4",
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: "#ffffff",
+            },
+          });
+          setUserMarker(marker);
+        }
+
+        // Center the map on user
+        map.setCenter(newLatLng);
+
+        // Update step
+        updateCurrentStep(latitude, longitude);
+      },
+      (error) => {
+        console.error("Error watching location:", error);
+        if (error.code === 3) {
+          alert("Location timeout. Try moving to a better spot or check permissions.");
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 5000,
+      }
+    );
+
+    setWatchId(id);
+  };
+
+  const handleStopRoute = () => {
+    if (watchId) {
+      navigator.geolocation.clearWatch(watchId);
+      setWatchId(null);
+    }
+
+    if (userMarker) {
+      userMarker.setMap(null);
+      setUserMarker(null);
+    }
+
+    setSteps([]);
+    setCurrentStepIndex(0);
+  };
+
+  const speak = (text) => {
+    console.log(text);
+
+    const utterance = new SpeechSynthesisUtterance();
+    utterance.text = text.replace(/<[^>]+>/g, ""); // Remove HTML tags
+    utterance.lang = "en-US";
+    utterance.pitch = 1;
+    utterance.rate = 1;
+    utterance.volume = 1;
+    speechSynthesis.speak(utterance);
   };
 
   return (
@@ -61,11 +167,11 @@ function RouteSelection({ routes, map, setPolylines }) {
                   value={index}
                   onChange={handleRadioChange}
                   checked={selectedRouteIndex === index}
-                ></input>
+                />
                 <div className="route-info">
                   <h3>Route {index + 1}</h3>
                   <p style={{ color: "red" }}>
-                    danger level : {Math.round(route.danger)}
+                    Danger level: {Math.round(route.danger)}
                   </p>
                   <p>Distance: {route.distance}</p>
                   <p>Time: {route.duration}</p>
@@ -75,15 +181,50 @@ function RouteSelection({ routes, map, setPolylines }) {
           </div>
           <div className="btn">
             <Stack spacing={2} direction="row">
-              <Button variant="contained" onClick={handleSelect}>Select Route</Button>
+              <Button variant="contained" onClick={handleSelect}>
+                Select Route
+              </Button>
             </Stack>
           </div>
         </>
       ) : (
         <p>No routes found</p>
       )}
+
       {selectedRouteIndex !== null && (
-        <p>Selected Route: Route {selectedRouteIndex + 1}</p>
+        <div className="results">
+          <p>Selected Route: Route {selectedRouteIndex + 1}</p>
+          <Stack spacing={2} direction="row">
+            <Button
+              variant="outlined"
+              color="success"
+              onClick={handleStartRoute}
+            >
+              Start Route
+            </Button>
+            {watchId && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleStopRoute}
+              >
+                Stop Route
+              </Button>
+            )}
+          </Stack>
+
+          {steps.length > 0 && currentStepIndex < steps.length && (
+            <div className="current-step" style={{ marginTop: "15px" }}>
+              <h4>Next Step:</h4>
+              <p
+                dangerouslySetInnerHTML={{
+                  __html: steps[currentStepIndex].instruction,
+                }}
+              />
+              <p>Distance: {steps[currentStepIndex].distance}</p>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

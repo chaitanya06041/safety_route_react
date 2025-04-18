@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import requests
-from geopy.distance import geodesic
+# from geopy.distance import geodesic
 from flask_cors import CORS
 import pandas as pd
 import temp
@@ -21,9 +21,9 @@ GOOGLE_MAPS_API_KEY = "AIzaSyABXrzOdYntmVFt7vHZPMHEtAnvZLr7N-s"
 
 @app.route('/get-crime-locations', methods=['POST'])
 def get_crime_locationss():
-    # filtered_df = temp.get_crime_locations()
-    filtered_df = pd.read_csv('crime_data_pune.csv')
-    # filtered_df['Time'] = filtered_df['Time'].apply(lambda t: t.strftime('%H:%M'))
+    filtered_df = temp.get_crime_locations()
+    # filtered_df = pd.read_csv('crime_data_pune.csv')
+    filtered_df['Time'] = filtered_df['Time'].apply(lambda t: t.strftime('%H:%M'))
     return jsonify({
         "status": "success",
         "data": filtered_df.to_dict(orient='records')

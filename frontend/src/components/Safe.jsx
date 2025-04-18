@@ -81,28 +81,30 @@ function Safe() {
 
   const getSafePaths = async (source, destination) => {
     try {
-      const response = await axios.post(
-        "http://127.0.0.1:5000/get-safe-paths",
-        {
-          source,
-          destination,
-        }
-      );
-
+      const response = await axios.post("http://127.0.0.1:5000/get-safe-paths", {
+        source,
+        destination,
+      });
+  
       if (response.data.routes && map) {
         console.log(response.data.routes);
         setRoutes(response.data.routes);
-
+  
         // Clear previous polylines and markers
         polylines.forEach((polyline) => polyline.setMap(null));
         markers.forEach((marker) => marker.setMap(null));
         const newPolylines = [];
         const newMarkers = [];
-
+  
         const bounds = new window.google.maps.LatLngBounds();
-
+  
+        // 1️⃣ Get min and max danger levels
+        const dangerLevels = response.data.routes.map((r) => r.danger);
+        const minDanger = Math.min(...dangerLevels);
+        const maxDanger = Math.max(...dangerLevels);
+  
         response.data.routes.forEach((route) => {
-          const pathCoords = route["coordinates"].map((coord) => {
+          const pathCoords = route.coordinates.map((coord) => {
             const latLng = {
               lat: parseFloat(coord[0]),
               lng: parseFloat(coord[1]),
@@ -110,14 +112,14 @@ function Safe() {
             bounds.extend(latLng);
             return latLng;
           });
-
-          const dangerLevel = route["danger"];
-
-          // Set stroke color based on danger level
-          let strokeColor = "green";
-          if (dangerLevel > 12000) strokeColor = "red";
-          else if (dangerLevel > 1000) strokeColor = "blue";
-
+  
+          const dangerLevel = route.danger;
+  
+          // 2️⃣ Assign colors based on danger level
+          let strokeColor = "blue"; // default moderate
+          if (dangerLevel === maxDanger) strokeColor = "red";
+          else if (dangerLevel === minDanger) strokeColor = "green";
+  
           const polyline = new window.google.maps.Polyline({
             path: pathCoords,
             geodesic: true,
@@ -125,15 +127,15 @@ function Safe() {
             strokeOpacity: 1.0,
             strokeWeight: 4,
           });
-
+  
           polyline.setMap(map);
           newPolylines.push(polyline);
         });
-
-        // Add source ("S") and destination ("D") markers once from the first route
+  
+        // 3️⃣ Add source and destination markers
         const firstRoute = response.data.routes[0];
-        const firstCoords = firstRoute["coordinates"];
-
+        const firstCoords = firstRoute.coordinates;
+  
         if (firstCoords.length > 1) {
           const sourceCoord = {
             lat: parseFloat(firstCoords[0][0]),
@@ -143,27 +145,27 @@ function Safe() {
             lat: parseFloat(firstCoords[firstCoords.length - 1][0]),
             lng: parseFloat(firstCoords[firstCoords.length - 1][1]),
           };
-
+  
           const sourceMarker = new window.google.maps.Marker({
             position: sourceCoord,
             map,
             label: "S",
             title: "Source",
           });
-
+  
           const destinationMarker = new window.google.maps.Marker({
             position: destinationCoord,
             map,
             label: "D",
             title: "Destination",
           });
-
+  
           newMarkers.push(sourceMarker, destinationMarker);
         }
-
+  
         // Adjust map view
         map.fitBounds(bounds);
-
+  
         setPolylines(newPolylines);
         setMarkers(newMarkers);
       }
@@ -171,6 +173,7 @@ function Safe() {
       console.error("caught error ", err);
     }
   };
+  
 
   const handleSearch = async () => {
     if (source == "" || destination == "") {
