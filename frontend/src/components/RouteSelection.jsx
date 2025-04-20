@@ -11,51 +11,106 @@ function RouteSelection({ routes, map, setPolylines }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const handleRadioChange = (event) => {
-    setSelectedRouteIndex(parseInt(event.target.value));
+    const index = parseInt(event.target.value);
+    setSelectedRouteIndex(index);
+  
+    if (!map) return;
+  
+    // Clear existing polylines
+    setPolylines((prevPolylines) => {
+      prevPolylines.forEach((polyline) => polyline.setMap(null));
+      return [];
+    });
+  
+    const newPolylines = [];
+  
+    // First, draw all unselected routes in gray
+    routes.forEach((route, i) => {
+      if (i === index) return; // Skip selected route
+  
+      const pathCoords = route.coordinates.map((coord) => ({
+        lat: parseFloat(coord[0]),
+        lng: parseFloat(coord[1]),
+      }));
+  
+      const polyline = new window.google.maps.Polyline({
+        path: pathCoords,
+        geodesic: true,
+        strokeColor: "gray",
+        strokeOpacity: 1.0,
+        strokeWeight: 4,
+        zIndex: 1,
+      });
+  
+      polyline.setMap(map);
+      newPolylines.push(polyline);
+    });
+  
+    // Now draw selected route in blue (on top)
+    const selectedRoute = routes[index];
+    const selectedPathCoords = selectedRoute.coordinates.map((coord) => ({
+      lat: parseFloat(coord[0]),
+      lng: parseFloat(coord[1]),
+    }));
+  
+    const selectedPolyline = new window.google.maps.Polyline({
+      path: selectedPathCoords,
+      geodesic: true,
+      strokeColor: "blue",
+      strokeOpacity: 1.0,
+      strokeWeight: 5,
+      zIndex: 2, // ensures it's above gray
+    });
+  
+    selectedPolyline.setMap(map);
+    newPolylines.push(selectedPolyline);
+  
+    setPolylines(newPolylines);
   };
+  
+  
+  
+  
 
   const handleSelect = () => {
     if (selectedRouteIndex === null || !map) {
       alert("Please select a route");
       return;
     }
-
+  
     const selectedRoute = routes[selectedRouteIndex];
-
+  
     // Clear all existing polylines
     setPolylines((prevPolylines) => {
       prevPolylines.forEach((polyline) => polyline.setMap(null));
       return [];
     });
-
+  
     const pathCoords = selectedRoute.coordinates.map((coord) => ({
       lat: parseFloat(coord[0]),
       lng: parseFloat(coord[1]),
     }));
-
-    let strokeColor = "green";
-    if (selectedRoute.danger > 12000) strokeColor = "red";
-    else if (selectedRoute.danger > 1000) strokeColor = "blue";
-
+  
     const newPolyline = new window.google.maps.Polyline({
       path: pathCoords,
       geodesic: true,
-      strokeColor,
+      strokeColor: "blue",
       strokeOpacity: 1.0,
-      strokeWeight: 4,
+      strokeWeight: 5,
     });
-
+  
     newPolyline.setMap(map);
     setPolylines([newPolyline]);
-
+  
     // Save steps
     if (selectedRoute.steps) {
       setSteps(selectedRoute.steps);
       setCurrentStepIndex(0);
     }
-
+  
     console.log("Selected Route:", selectedRoute);
   };
+  
 
   const updateCurrentStep = (lat, lng) => {
     const threshold = 0.0005; // Roughly 50m

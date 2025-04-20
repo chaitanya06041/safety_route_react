@@ -93,6 +93,7 @@ function Safe() {
 
   const getSafePaths = async (source, destination) => {
     try {
+      setRoutes(null);
       const geocoder = new window.google.maps.Geocoder();
       let sourceCoords, destCoords;
   
