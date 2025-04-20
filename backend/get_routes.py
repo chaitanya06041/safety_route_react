@@ -59,8 +59,12 @@ def get_route_danger(route_coords):
     return danger
 
 
-def get_routes(start, end):
-    directions = gmaps.directions(start, end, alternatives=True)
+def get_routes(source_coords, dest_coords):
+    directions = gmaps.directions(
+        origin={"lat": source_coords[0], "lng": source_coords[1]},
+        destination={"lat": dest_coords[0], "lng": dest_coords[1]},
+        alternatives=True
+    )
     routes = []
 
     for i, route in enumerate(directions):
@@ -82,8 +86,8 @@ def get_routes(start, end):
             'distance': route['legs'][0]['distance']['text'],
             'duration': route['legs'][0]['duration']['text'],
             'coordinates': path,
-            'steps':steps
+            'steps': steps
         })
+    
     return sorted(routes, key=lambda x: x['danger'])
-
 

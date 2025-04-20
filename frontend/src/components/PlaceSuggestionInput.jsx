@@ -5,7 +5,9 @@ const PlaceSuggestionInput = ({
   value,
   inputClass,
   ulClass,
-  placeholder
+  placeholder,
+  onFocus,
+  onBlur, 
 }) => {
   const [inputValue, setInputValue] = useState(value || "");
   const [suggestions, setSuggestions] = useState([]);
@@ -15,7 +17,7 @@ const PlaceSuggestionInput = ({
 
   useEffect(() => {
     setInputValue(value || "");
-    setValidSelection(false);
+    setValidSelection(value === "CURRENT LOCATION");
   }, [value]);
 
   useEffect(() => {
@@ -51,11 +53,6 @@ const PlaceSuggestionInput = ({
     onLocationSelect(place.description);
   };
 
-  const handleBlur = () => {
-    if (!validSelection) {
-      setInputValue("");
-    }
-  };
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowDown") {
@@ -73,7 +70,14 @@ const PlaceSuggestionInput = ({
         type="text"
         value={inputValue}
         onChange={handleChange}
-        onBlur={handleBlur}
+        onBlur={(e) => {
+          setTimeout(() => {
+            if (onBlur) onBlur(e);
+          }, 100);
+        }}
+        onFocus={(e) => {
+          if (onFocus) onFocus(e); // 👈 Call parent onFocus
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={inputClass}

@@ -19,6 +19,8 @@ function Safe() {
   const [clicked, setClicked] = useState(false);
   const [markers, setMarkers] = useState([]);
   const [routes, setRoutes] = useState(null);
+  const [isFocus, setIsFocus] = useState(false);
+  const [activeInput, setActiveInput] = useState(null);
 
   useEffect(() => {
     if (window.google) {
@@ -35,6 +37,16 @@ function Safe() {
     let temp = source;
     setSource(destination);
     setDestination(temp);
+  };
+
+  const handleCurrentLocation = async () => {
+    console.log("Clicked on current location");
+    console.log(activeInput);
+    if (activeInput == "SOURCE") {
+      setSource("CURRENT LOCATION");
+    } else if (activeInput == "DESTINATION") {
+      setDestination("CURRENT LOCATION");
+    }
   };
 
   const fetchCurrentLocation = () => {
@@ -81,44 +93,55 @@ function Safe() {
 
   const getSafePaths = async (source, destination) => {
     try {
+      const geocoder = new window.google.maps.Geocoder();
+      let sourceCoords, destCoords;
+  
+      // Convert source
+      if (source === "CURRENT LOCATION") {
+        sourceCoords = await fetchCurrentLocation(); // Assumes it returns { lat, lng }
+      } else {
+        const sourceResult = await geocodeAddress(geocoder, source);
+        sourceCoords = sourceResult;
+      }
+  
+      // Convert destination
+      if (destination === "CURRENT LOCATION") {
+        destCoords = await fetchCurrentLocation();
+      } else {
+        const destResult = await geocodeAddress(geocoder, destination);
+        destCoords = destResult;
+      }
+  
       const response = await axios.post("http://127.0.0.1:5000/get-safe-paths", {
-        source,
-        destination,
+        source_lat: sourceCoords.lat,
+        source_lng: sourceCoords.lng,
+        dest_lat: destCoords.lat,
+        dest_lng: destCoords.lng,
       });
   
       if (response.data.routes && map) {
-        console.log(response.data.routes);
         setRoutes(response.data.routes);
   
-        // Clear previous polylines and markers
         polylines.forEach((polyline) => polyline.setMap(null));
         markers.forEach((marker) => marker.setMap(null));
         const newPolylines = [];
         const newMarkers = [];
-  
         const bounds = new window.google.maps.LatLngBounds();
   
-        // 1️⃣ Get min and max danger levels
         const dangerLevels = response.data.routes.map((r) => r.danger);
         const minDanger = Math.min(...dangerLevels);
         const maxDanger = Math.max(...dangerLevels);
   
         response.data.routes.forEach((route) => {
-          const pathCoords = route.coordinates.map((coord) => {
-            const latLng = {
-              lat: parseFloat(coord[0]),
-              lng: parseFloat(coord[1]),
-            };
+          const pathCoords = route.coordinates.map(([lat, lng]) => {
+            const latLng = { lat: parseFloat(lat), lng: parseFloat(lng) };
             bounds.extend(latLng);
             return latLng;
           });
   
-          const dangerLevel = route.danger;
-  
-          // 2️⃣ Assign colors based on danger level
-          let strokeColor = "blue"; // default moderate
-          if (dangerLevel === maxDanger) strokeColor = "red";
-          else if (dangerLevel === minDanger) strokeColor = "green";
+          let strokeColor = "blue";
+          if (route.danger === maxDanger) strokeColor = "red";
+          else if (route.danger === minDanger) strokeColor = "green";
   
           const polyline = new window.google.maps.Polyline({
             path: pathCoords,
@@ -132,29 +155,26 @@ function Safe() {
           newPolylines.push(polyline);
         });
   
-        // 3️⃣ Add source and destination markers
+        // Add markers for first route
         const firstRoute = response.data.routes[0];
         const firstCoords = firstRoute.coordinates;
   
         if (firstCoords.length > 1) {
-          const sourceCoord = {
-            lat: parseFloat(firstCoords[0][0]),
-            lng: parseFloat(firstCoords[0][1]),
-          };
-          const destinationCoord = {
-            lat: parseFloat(firstCoords[firstCoords.length - 1][0]),
-            lng: parseFloat(firstCoords[firstCoords.length - 1][1]),
-          };
-  
           const sourceMarker = new window.google.maps.Marker({
-            position: sourceCoord,
+            position: {
+              lat: parseFloat(firstCoords[0][0]),
+              lng: parseFloat(firstCoords[0][1]),
+            },
             map,
             label: "S",
             title: "Source",
           });
   
           const destinationMarker = new window.google.maps.Marker({
-            position: destinationCoord,
+            position: {
+              lat: parseFloat(firstCoords.at(-1)[0]),
+              lng: parseFloat(firstCoords.at(-1)[1]),
+            },
             map,
             label: "D",
             title: "Destination",
@@ -163,9 +183,7 @@ function Safe() {
           newMarkers.push(sourceMarker, destinationMarker);
         }
   
-        // Adjust map view
         map.fitBounds(bounds);
-  
         setPolylines(newPolylines);
         setMarkers(newMarkers);
       }
@@ -174,16 +192,37 @@ function Safe() {
     }
   };
   
+  const geocodeAddress = (geocoder, address) => {
+    return new Promise((resolve, reject) => {
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === "OK" && results[0]) {
+          const location = results[0].geometry.location;
+          resolve({ lat: location.lat(), lng: location.lng() });
+        } else {
+          reject("Geocoding failed: " + status);
+        }
+      });
+    });
+  };
+  
 
   const handleSearch = async () => {
     if (source == "" || destination == "") {
       alert("Please enter source and destination");
       return;
     }
+    if (source === destination) {
+      alert("Source and Destination are same!");
+      return;
+    }
+    console.log(source + " " + destination);
+
     setClicked(true);
     await getSafePaths(source, destination);
     setClicked(false);
   };
+
+  const changeVal = (evt) => {};
 
   return (
     <div className="home">
@@ -197,6 +236,8 @@ function Safe() {
               inputClass="inputs"
               ulClass="suggestions-dropdown"
               placeholder="Enter Source"
+              onFocus={() => setActiveInput("SOURCE")}
+              onBlur={() => setActiveInput(null)}
             />
           </div>
 
@@ -212,6 +253,8 @@ function Safe() {
               inputClass="inputs"
               ulClass="suggestions-dropdown"
               placeholder="Enter Destination"
+              onFocus={() => setActiveInput("DESTINATION")}
+              onBlur={() => setActiveInput(null)}
             />
           </div>
         </div>
@@ -226,11 +269,21 @@ function Safe() {
               className="Loader"
             />
           ) : (
-            <Stack spacing={2} direction="row">
-              <Button variant="contained" onClick={handleSearch}>
-                Find Safe Route
-              </Button>
-            </Stack>
+            <>
+              { activeInput && 
+                <Stack spacing={2} direction="row">
+                  <Button variant="contained" onMouseDown={handleCurrentLocation}>
+                    Use Current Location
+                  </Button>
+                </Stack>
+              }
+
+              <Stack spacing={2} direction="row">
+                <Button variant="contained" onClick={handleSearch}>
+                  Find Safe Route
+                </Button>
+              </Stack>
+            </>
           )}
         </div>
 

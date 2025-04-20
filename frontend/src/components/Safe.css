@@ -47,6 +47,10 @@
 
 .home .input_section .btn_section {
     margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
 }
 
 .home .input_section .btn_section {
