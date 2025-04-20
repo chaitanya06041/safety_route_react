@@ -121,6 +121,7 @@ function Safe() {
       });
   
       if (response.data.routes && map) {
+        console.log(response.data.routes);
         setRoutes(response.data.routes);
   
         polylines.forEach((polyline) => polyline.setMap(null));
